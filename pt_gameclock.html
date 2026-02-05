@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>究極の釣り時計</title>
+    <style>
+        :root {
+            --bg-day: #87CEEB; --bg-night: #1a1a2e;
+            --main-pink: #FF6B6B; --panel-white: rgba(255, 255, 255, 0.25);
+        }
+        body {
+            font-family: sans-serif; display: flex; flex-direction: column; align-items: center;
+            min-height: 100vh; margin: 0; padding: 20px; transition: 1s;
+        }
+        body.day { background-color: var(--bg-day); color: #2d3436; }
+        body.night { background-color: var(--bg-night); color: #dfe6e9; }
+
+        .clock-container {
+            text-align: center; padding: 1.2rem 2.2rem; border-radius: 25px;
+            background: var(--panel-white); backdrop-filter: blur(10px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1); margin-bottom: 20px; border: 3px solid #fff;
+        }
+        .time-display { font-size: 3.8rem; font-weight: bold; font-family: monospace; }
+        
+        .next-catch-banner {
+            font-size: 0.9rem; font-weight: bold; color: #fff; background: rgba(0,0,0,0.4);
+            padding: 8px 15px; border-radius: 12px; margin-top: 10px;
+        }
+
+        .panel {
+            width: 100%; max-width: 480px; background: var(--panel-white);
+            backdrop-filter: blur(10px); border-radius: 20px; padding: 18px;
+            margin-bottom: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+
+        .sound-settings { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+        .setting-item { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: bold; }
+        
+        .form-row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+        input, select, button { padding: 10px; border-radius: 12px; border: none; font-size: 0.9rem; }
+        input[type="text"] { flex: 1; min-width: 120px; }
+        .add-btn { background: var(--main-pink); color: white; cursor: pointer; font-weight: bold; }
+
+        .fish-item {
+            display: flex; align-items: center; padding: 15px; margin-bottom: 12px;
+            background: rgba(255, 255, 255, 0.3); border-radius: 18px; border: 2px solid transparent; transition: 0.3s;
+        }
+        .fish-item.pre-alert { border-color: orange; animation: bounce 1s infinite; }
+        .fish-item.active-catch { border-color: gold; transform: scale(1.02); }
+        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+
+        .fish-info { flex-grow: 1; margin-left: 12px; line-height: 1.5; font-size: 0.85rem; }
+        .fish-name { font-size: 1.1rem; font-weight: bold; color: #d63031; margin-bottom: 4px; }
+        body.night .fish-name { color: #ff7675; }
+        .del-btn { background: #b2bec3; color: white; margin-left: 10px; padding: 5px 8px; cursor: pointer; font-size: 0.7rem; border-radius: 8px; }
+        
+        /* リセットボタンのスタイル */
+        .reset-btn {
+            background: none; color: white; opacity: 0.6; font-size: 0.8rem; text-decoration: underline;
+            cursor: pointer; margin-top: 20px; padding: 10px;
+        }
+        .reset-btn:hover { opacity: 1; }
+    </style>
+</head>
+<body class="day" onclick="initSystems()">
+
+    <div class="clock-container">
+        <div id="status-label" style="font-weight: bold; font-size: 1.1rem; margin-bottom: 5px;">---</div>
+        <div id="clock" class="time-display">00:00</div>
+        <div id="next-banner" class="next-catch-banner">準備中...</div>
+    </div>
+
+    <div class="panel">
+        <div class="sound-settings">
+            <div class="setting-item"><input type="checkbox" id="pre-sound-on" checked onchange="saveConfig()"> 🎵 事前通知音</div>
+            <div class="setting-item"><input type="checkbox" id="start-sound-on" checked onchange="saveConfig()"> 🔔 開始通知音</div>
+        </div>
+        <div style="font-size: 0.85rem;">
+            通知タイミング: 
+            <select id="alert-sec" onchange="saveConfig()">
+                <option value="15">15秒前</option><option value="30" selected>30秒前</option><option value="60">1分前</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div style="font-weight: bold; font-size: 0.9rem; margin-bottom: 8px;">🐟 魚を新しく追加</div>
+        <div class="form-row">
+            <input type="text" id="new-name" placeholder="魚の名前">
+            開始:<input type="number" id="new-start" style="width:45px" value="12">
+            終了:<input type="number" id="new-end" style="width:45px" value="14">
+            <button class="add-btn" onclick="addFish()">追加</button>
+        </div>
+    </div>
+
+    <div id="fish-list" style="width:100%; max-width:480px;"></div>
+
+    <button class="reset-btn" onclick="resetToDefault()">魚のリストをデフォルトに戻す</button>
+
+    <script>
+        var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        var unlocked = false;
+        var wakeLock = null;
+
+        async function initSystems() {
+            if (!unlocked) {
+                if (audioCtx.state === 'suspended') await audioCtx.resume();
+                unlocked = true;
+            }
+            requestWakeLock();
+        }
+
+        async function requestWakeLock() {
+            try {
+                if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen');
+            } catch (err) {}
+        }
+
+        function playPreSound() {
+            if (!document.getElementById('pre-sound-on').checked || !unlocked) return;
+            var o = audioCtx.createOscillator();
+            var g = audioCtx.createGain();
+            o.frequency.setValueAtTime(1000, audioCtx.currentTime);
+            g.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
+            o.connect(g); g.connect(audioCtx.destination);
+            o.start(); o.stop(audioCtx.currentTime + 0.2);
+        }
+
+        function playStartSound() {
+            if (!document.getElementById('start-sound-on').checked || !unlocked) return;
+            var o = audioCtx.createOscillator();
+            var g = audioCtx.createGain();
+            o.frequency.setValueAtTime(440, audioCtx.currentTime);
+            g.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.0);
+            o.connect(g); g.connect(audioCtx.destination);
+            o.start(); o.stop(audioCtx.currentTime + 1.0);
+        }
+
+        // --- データ管理 ---
+        var defaultFish = [
+            { id: 1, name: 'ミニピンクイルカ', start: 12, end: 14, place: 'モール', shadow: '小', season: '1月～12月', note: 'ミニ釣りざおのみ' },
+            { id: 2, name: 'マッコウクジラ', start: 0, end: 5, place: 'ボート/ブルホ', shadow: '超特大', season: '1月～12月', note: '-' }
+        ];
+
+        var fishData = JSON.parse(localStorage.getItem('fishing_fish_data')) || [...defaultFish];
+
+        function saveConfig() {
+            localStorage.setItem('fishing_fish_data', JSON.stringify(fishData));
+            localStorage.setItem('fishing_pre_on', document.getElementById('pre-sound-on').checked);
+            localStorage.setItem('fishing_start_on', document.getElementById('start-sound-on').checked);
+            localStorage.setItem('fishing_alert_sec', document.getElementById('alert-sec').value);
+        }
+
+        function loadConfig() {
+            if(localStorage.getItem('fishing_pre_on') !== null) {
+                document.getElementById('pre-sound-on').checked = localStorage.getItem('fishing_pre_on') === 'true';
+                document.getElementById('start-sound-on').checked = localStorage.getItem('fishing_start_on') === 'true';
+                document.getElementById('alert-sec').value = localStorage.getItem('fishing_alert_sec');
+            }
+        }
+
+        // デフォルトに戻す機能
+        function resetToDefault() {
+            if (confirm("魚のリストを初期状態に戻しますか？（自分で追加した魚も消えます）")) {
+                fishData = JSON.parse(JSON.stringify(defaultFish)); // コピーを作成
+                fishData.forEach(function(f){ f.checked = true; f.preNotified = false; f.startNotified = false; });
+                saveConfig();
+                renderList();
+            }
+        }
+
+        function addFish() {
+            var name = document.getElementById('new-name').value || "新しい魚";
+            var start = parseInt(document.getElementById('new-start').value) || 0;
+            var end = parseInt(document.getElementById('new-end').value) || 0;
+            fishData.push({ id: Date.now(), name: name, start: start, end: end, checked: true, preNotified: false, startNotified: false, place: 'カスタム', shadow: '-', season: '-', note: '-' });
+            saveConfig();
+            renderList();
+        }
+
+        function deleteFish(id) {
+            fishData = fishData.filter(function(f){ return f.id !== id; });
+            saveConfig();
+            renderList();
+        }
+
+        function renderList() {
+            var list = document.getElementById('fish-list');
+            list.innerHTML = fishData.map(function(f){
+                return '<div class="fish-item" id="row-' + f.id + '">' +
+                    '<input type="checkbox" ' + (f.checked ? 'checked' : '') + ' onchange="updateCheck(' + f.id + ', this.checked)">' +
+                    '<div class="fish-info">' +
+                        '<div class="fish-name">' + f.name + '</div>' +
+                        '場所：' + (f.place || '設定なし') + ' / 時間：' + ('0' + f.start).slice(-2) + ':00～' + ('0' + f.end).slice(-2) + ':00' +
+                    '</div>' +
+                    '<div class="fish-status" id="status-' + f.id + '">待機中</div>' +
+                    '<button class="del-btn" onclick="deleteFish(' + f.id + ')">削除</button>' +
+                '</div>';
+            }).join('');
+        }
+
+        function updateCheck(id, val) {
+            var f = fishData.find(function(x){ return x.id === id; });
+            if (f) { f.checked = val; f.preNotified = false; f.startNotified = false; }
+            saveConfig();
+        }
+
+        function update() {
+            var now = new Date();
+            var progress = (now.getTime() % 1800000) / 1800000;
+            var h = Math.floor(progress * 24);
+            var m = Math.floor((progress * 1440) % 60);
+            var s = Math.floor((progress * 86400) % 60);
+            var floatH = h + (m / 60) + (s / 3600);
+
+            document.getElementById('clock').textContent = ('0' + h).slice(-2) + ':' + ('0' + m).slice(-2);
+            document.body.className = (h >= 7 && h <= 18) ? 'day' : 'night';
+            document.getElementById('status-label').textContent = (h >= 7 && h <= 18) ? '☀️ DAY TIME' : '🌙 NIGHT TIME';
+
+            var alertSec = parseInt(document.getElementById('alert-sec').value);
+            var minSecToNext = 999999;
+            var nextFishName = "";
+
+            fishData.forEach(function(f) {
+                var row = document.getElementById('row-' + f.id);
+                var stat = document.getElementById('status-' + f.id);
+                if (!row) return;
+
+                var isFishing = (f.start < f.end) ? (h >= f.start && h < f.end) : (h >= f.start || h < f.end);
+                var diffH = (f.start > floatH) ? (f.start - floatH) : (24 - floatH + f.start);
+                var secToStart = Math.floor(diffH * 75);
+
+                row.classList.remove('active-catch', 'pre-alert');
+
+                if (isFishing) {
+                    stat.textContent = "釣れます！";
+                    if (f.checked) {
+                        row.classList.add('active-catch');
+                        if (!f.startNotified) { playStartSound(); f.startNotified = true; }
+                    }
+                } else {
+                    if (f.checked && secToStart < minSecToNext) {
+                        minSecToNext = secToStart;
+                        nextFishName = f.name;
+                    }
+                    if (f.checked && secToStart <= alertSec) {
+                        stat.textContent = "あと" + secToStart + "s";
+                        row.classList.add('pre-alert');
+                        f.startNotified = false;
+                        if (!f.preNotified) { playPreSound(); f.preNotified = true; }
+                    } else {
+                        stat.textContent = "待機中";
+                        if (secToStart > alertSec + 10) { f.preNotified = false; f.startNotified = false; }
+                    }
+                }
+            });
+
+            var banner = document.getElementById('next-banner');
+            if (nextFishName) {
+                banner.textContent = "次：[" + nextFishName + "] まであと " + minSecToNext + "秒";
+            } else {
+                banner.textContent = "次の予定はありません";
+            }
+        }
+
+        loadConfig();
+        renderList();
+        setInterval(update, 1000);
+        update();
+    </script>
+</body>
+</html>
