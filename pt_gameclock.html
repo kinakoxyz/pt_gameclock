@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>究極の釣り時計</title>
+    <title>Play Together Game Clocks</title>
     <style>
         :root {
             --bg-day: #87CEEB; --bg-night: #1a1a2e;
@@ -15,6 +15,12 @@
         }
         body.day { background-color: var(--bg-day); color: #2d3436; }
         body.night { background-color: var(--bg-night); color: #dfe6e9; }
+
+        /* タイトルのスタイル */
+        .app-title {
+            font-size: 1.2rem; font-weight: bold; letter-spacing: 1px;
+            margin-bottom: 15px; opacity: 0.9; text-transform: uppercase;
+        }
 
         .clock-container {
             text-align: center; padding: 1.2rem 2.2rem; border-radius: 25px;
@@ -55,15 +61,23 @@
         body.night .fish-name { color: #ff7675; }
         .del-btn { background: #b2bec3; color: white; margin-left: 10px; padding: 5px 8px; cursor: pointer; font-size: 0.7rem; border-radius: 8px; }
         
-        /* リセットボタンのスタイル */
-        .reset-btn {
-            background: none; color: white; opacity: 0.6; font-size: 0.8rem; text-decoration: underline;
-            cursor: pointer; margin-top: 20px; padding: 10px;
+        .footer {
+            margin-top: auto; padding: 30px 10px 10px; text-align: center; width: 100%;
         }
-        .reset-btn:hover { opacity: 1; }
+        .footer a {
+            color: inherit; text-decoration: none; font-weight: bold; font-size: 0.9rem; opacity: 0.8;
+        }
+        .footer a:hover { opacity: 1; text-decoration: underline; }
+        
+        .reset-btn {
+            background: none; color: white; opacity: 0.5; font-size: 0.7rem; text-decoration: underline;
+            cursor: pointer; border: none; margin-bottom: 10px;
+        }
     </style>
 </head>
 <body class="day" onclick="initSystems()">
+
+    <div class="app-title">Play Together Game Clocks</div>
 
     <div class="clock-container">
         <div id="status-label" style="font-weight: bold; font-size: 1.1rem; margin-bottom: 5px;">---</div>
@@ -96,7 +110,11 @@
 
     <div id="fish-list" style="width:100%; max-width:480px;"></div>
 
-    <button class="reset-btn" onclick="resetToDefault()">魚のリストをデフォルトに戻す</button>
+    <button class="reset-btn" onclick="resetToDefault()">魚のリストを初期化する</button>
+
+    <div class="footer">
+        <a href="https://x.com/satochintama" target="_blank">Created by @satochintama</a>
+    </div>
 
     <script>
         var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -139,10 +157,9 @@
             o.start(); o.stop(audioCtx.currentTime + 1.0);
         }
 
-        // --- データ管理 ---
         var defaultFish = [
-            { id: 1, name: 'ミニピンクイルカ', start: 12, end: 14, place: 'モール', shadow: '小', season: '1月～12月', note: 'ミニ釣りざおのみ' },
-            { id: 2, name: 'マッコウクジラ', start: 0, end: 5, place: 'ボート/ブルホ', shadow: '超特大', season: '1月～12月', note: '-' }
+            { id: 1, name: 'ミニピンクイルカ', start: 12, end: 14, place: 'モール' },
+            { id: 2, name: 'マッコウクジラ', start: 0, end: 5, place: 'ボート/ブルホ' }
         ];
 
         var fishData = JSON.parse(localStorage.getItem('fishing_fish_data')) || [...defaultFish];
@@ -162,10 +179,9 @@
             }
         }
 
-        // デフォルトに戻す機能
         function resetToDefault() {
-            if (confirm("魚のリストを初期状態に戻しますか？（自分で追加した魚も消えます）")) {
-                fishData = JSON.parse(JSON.stringify(defaultFish)); // コピーを作成
+            if (confirm("魚のリストを初期状態に戻しますか？")) {
+                fishData = JSON.parse(JSON.stringify(defaultFish));
                 fishData.forEach(function(f){ f.checked = true; f.preNotified = false; f.startNotified = false; });
                 saveConfig();
                 renderList();
@@ -176,7 +192,7 @@
             var name = document.getElementById('new-name').value || "新しい魚";
             var start = parseInt(document.getElementById('new-start').value) || 0;
             var end = parseInt(document.getElementById('new-end').value) || 0;
-            fishData.push({ id: Date.now(), name: name, start: start, end: end, checked: true, preNotified: false, startNotified: false, place: 'カスタム', shadow: '-', season: '-', note: '-' });
+            fishData.push({ id: Date.now(), name: name, start: start, end: end, checked: true, preNotified: false, startNotified: false, place: 'カスタム' });
             saveConfig();
             renderList();
         }
