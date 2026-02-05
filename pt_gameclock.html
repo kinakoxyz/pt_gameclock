@@ -252,7 +252,7 @@
                 row.classList.remove('active-catch', 'pre-alert');
 
                 if (isFishing) {
-                    stat.textContent = "釣れます！";
+                    stat.textContent = "出現中";
                     if (f.checked) {
                         row.classList.add('active-catch');
                         if (!f.startNotified) { playStartSound(); f.startNotified = true; }
@@ -289,3 +289,4 @@
     </script>
 </body>
 </html>
+
