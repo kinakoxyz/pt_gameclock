@@ -28,7 +28,6 @@
         }
         .time-display { font-size: 3.8rem; font-weight: bold; font-family: monospace; }
         
-        /* 昼夜の時間説明用スタイル */
         .time-guide {
             font-size: 0.75rem; font-weight: bold; margin-bottom: 10px; opacity: 0.8;
             background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 20px; display: inline-block;
@@ -104,7 +103,11 @@
         <div style="font-size: 0.85rem;">
             通知タイミング: 
             <select id="alert-sec" onchange="saveConfig()">
-                <option value="15">15秒前</option><option value="30" selected>30秒前</option><option value="60">1分前</option>
+                <option value="15">15秒前</option>
+                <option value="30" selected>30秒前</option>
+                <option value="60">1分前</option>
+                <option value="180">3分前</option>
+                <option value="300">5分前</option>
             </select>
         </div>
     </div>
@@ -247,6 +250,13 @@
             saveConfig();
         }
 
+        // 秒数を 分:秒 形式にする関数
+        function formatTime(totalSeconds) {
+            var mins = Math.floor(totalSeconds / 60);
+            var secs = totalSeconds % 60;
+            return mins + "分" + (secs < 10 ? "0" : "") + secs + "秒";
+        }
+
         function update() {
             var now = new Date();
             var progress = (now.getTime() % 1800000) / 1800000;
@@ -286,7 +296,7 @@
                         nextFishName = f.name;
                     }
                     if (f.checked && secToStart <= alertSec) {
-                        stat.textContent = "あと" + secToStart + "s";
+                        stat.textContent = "あと" + formatTime(secToStart); // リスト内も分:秒に
                         row.classList.add('pre-alert');
                         f.startNotified = false;
                         if (!f.preNotified) { playPreSound(); f.preNotified = true; }
@@ -299,7 +309,7 @@
 
             var banner = document.getElementById('next-banner');
             if (nextFishName) {
-                banner.textContent = "次：[" + nextFishName + "] まであと " + minSecToNext + "秒";
+                banner.textContent = "次：[" + nextFishName + "] まであと " + formatTime(minSecToNext);
             } else {
                 banner.textContent = "次の予定はありません";
             }
