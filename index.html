@@ -8,6 +8,7 @@
         :root {
             --bg-day: #87CEEB; --bg-night: #1a1a2e;
             --main-pink: #FF6B6B; --panel-white: rgba(255, 255, 255, 0.25);
+            --alert-red: #ff4757; /* 出現中の赤色 */
         }
         body {
             font-family: sans-serif; display: flex; flex-direction: column; align-items: center;
@@ -50,10 +51,11 @@
         .volume-row { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; font-weight: bold; margin-bottom: 15px; }
         input[type="range"] { flex: 1; cursor: pointer; accent-color: var(--main-pink); }
 
-        .form-row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
-        input, select, button { padding: 10px; border-radius: 12px; border: none; font-size: 0.9rem; }
-        input[type="text"] { flex: 1; min-width: 120px; }
-        .add-btn { background: var(--main-pink); color: white; cursor: pointer; font-weight: bold; }
+        .form-row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; align-items: center; }
+        input[type="text"] { flex: 1; min-width: 140px; padding: 10px; border-radius: 12px; border: none; font-size: 0.9rem; }
+        select, button { padding: 10px; border-radius: 12px; border: none; font-size: 0.9rem; }
+        .time-select-group { display: flex; align-items: center; gap: 4px; font-size: 0.85rem; font-weight: bold; }
+        .add-btn { background: var(--main-pink); color: white; cursor: pointer; font-weight: bold; flex-grow: 1; margin-top: 5px; }
 
         .fish-item {
             display: flex; align-items: center; padding: 15px; margin-bottom: 12px;
@@ -66,6 +68,11 @@
         .fish-info { flex-grow: 1; margin-left: 12px; line-height: 1.5; font-size: 0.85rem; }
         .fish-name { font-size: 1.1rem; font-weight: bold; color: #d63031; margin-bottom: 4px; }
         body.night .fish-name { color: #ff7675; }
+        
+        /* ステータス文字の色設定 */
+        .fish-status { font-weight: bold; min-width: 80px; text-align: right; }
+        .status-active { color: var(--alert-red); } /* 出現中の赤色 */
+
         .del-btn { background: #b2bec3; color: white; margin-left: 10px; padding: 5px 8px; cursor: pointer; font-size: 0.7rem; border-radius: 8px; }
         
         .footer { margin-top: auto; padding: 30px 10px 10px; text-align: center; width: 100%; }
@@ -116,9 +123,11 @@
         <div style="font-weight: bold; font-size: 0.9rem; margin-bottom: 8px;">🐟 魚を新しく追加</div>
         <div class="form-row">
             <input type="text" id="new-name" placeholder="魚の名前">
-            開始:<input type="number" id="new-start" style="width:45px" value="12">
-            終了:<input type="number" id="new-end" style="width:45px" value="14">
-            <button class="add-btn" onclick="addFish()">追加</button>
+            <div class="time-select-group">
+                開始:<select id="new-start"></select>
+                終了:<select id="new-end"></select>
+            </div>
+            <button class="add-btn" onclick="addFish()">リストに追加</button>
         </div>
     </div>
 
@@ -135,6 +144,24 @@
         var unlocked = false;
         var wakeLock = null;
 
+        function setupTimeDropdowns() {
+            const startSelect = document.getElementById('new-start');
+            const endSelect = document.getElementById('new-end');
+            for (let i = 0; i < 24; i++) {
+                let optStart = document.createElement('option');
+                optStart.value = i;
+                optStart.textContent = ('0' + i).slice(-2) + ':00';
+                startSelect.appendChild(optStart);
+
+                let optEnd = document.createElement('option');
+                optEnd.value = i;
+                optEnd.textContent = ('0' + i).slice(-2) + ':00';
+                endSelect.appendChild(optEnd);
+            }
+            startSelect.value = 12;
+            endSelect.value = 14;
+        }
+
         async function initSystems() {
             if (!unlocked) {
                 if (audioCtx.state === 'suspended') await audioCtx.resume();
@@ -149,29 +176,40 @@
             } catch (err) {}
         }
 
-        function playTone(freq, duration) {
+        // 強力な音を出すための関数
+        function playTone(freq, duration, type = 'sine') {
             if (!unlocked) return;
             var vol = parseFloat(document.getElementById('volume-range').value);
             var o = audioCtx.createOscillator();
             var g = audioCtx.createGain();
+            
+            o.type = type; // square(四角波)にするともっとうるさくなりますが、ここではsine/triangleで調整
             o.frequency.setValueAtTime(freq, audioCtx.currentTime);
-            g.gain.setValueAtTime(vol * 0.2, audioCtx.currentTime);
+            
+            g.gain.setValueAtTime(vol * 0.4, audioCtx.currentTime); // ゲインを少し底上げ
             g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+            
             o.connect(g); g.connect(audioCtx.destination);
             o.start(); o.stop(audioCtx.currentTime + duration);
         }
 
         function testSound() {
-            playTone(800, 0.2);
+            playTone(880, 0.2, 'triangle'); // テスト音を少し明快に
             document.getElementById('vol-value').textContent = Math.round(document.getElementById('volume-range').value * 100) + "%";
         }
 
         function playPreSound() {
-            if (document.getElementById('pre-sound-on').checked) playTone(1000, 0.2);
+            if (!document.getElementById('pre-sound-on').checked) return;
+            // 2回鳴らして気づきやすく
+            playTone(1200, 0.1, 'sine');
+            setTimeout(() => playTone(1200, 0.1, 'sine'), 150);
         }
 
         function playStartSound() {
-            if (document.getElementById('start-sound-on').checked) playTone(440, 1.0);
+            if (!document.getElementById('start-sound-on').checked) return;
+            // 厚みのある音（和音に近い構成）
+            playTone(440, 0.8, 'triangle');
+            playTone(880, 0.5, 'sine');
         }
 
         var defaultFish = [
@@ -215,11 +253,12 @@
 
         function addFish() {
             var name = document.getElementById('new-name').value || "新しい魚";
-            var start = parseInt(document.getElementById('new-start').value) || 0;
-            var end = parseInt(document.getElementById('new-end').value) || 0;
+            var start = parseInt(document.getElementById('new-start').value);
+            var end = parseInt(document.getElementById('new-end').value);
             fishData.push({ id: Date.now(), name: name, start: start, end: end, checked: true, preNotified: false, startNotified: false, place: 'カスタム' });
             saveConfig();
             renderList();
+            document.getElementById('new-name').value = "";
         }
 
         function deleteFish(id) {
@@ -250,7 +289,6 @@
             saveConfig();
         }
 
-        // 秒数を 分:秒 形式にする関数
         function formatTime(totalSeconds) {
             var mins = Math.floor(totalSeconds / 60);
             var secs = totalSeconds % 60;
@@ -283,9 +321,11 @@
                 var secToStart = Math.floor(diffH * 75);
 
                 row.classList.remove('active-catch', 'pre-alert');
+                stat.classList.remove('status-active');
 
                 if (isFishing) {
                     stat.textContent = "出現中！";
+                    stat.classList.add('status-active');
                     if (f.checked) {
                         row.classList.add('active-catch');
                         if (!f.startNotified) { playStartSound(); f.startNotified = true; }
@@ -296,7 +336,7 @@
                         nextFishName = f.name;
                     }
                     if (f.checked && secToStart <= alertSec) {
-                        stat.textContent = "あと" + formatTime(secToStart); // リスト内も分:秒に
+                        stat.textContent = "あと" + formatTime(secToStart);
                         row.classList.add('pre-alert');
                         f.startNotified = false;
                         if (!f.preNotified) { playPreSound(); f.preNotified = true; }
@@ -315,6 +355,7 @@
             }
         }
 
+        setupTimeDropdowns();
         loadConfig();
         renderList();
         setInterval(update, 1000);
