@@ -16,7 +16,6 @@
         body.day { background-color: var(--bg-day); color: #2d3436; }
         body.night { background-color: var(--bg-night); color: #dfe6e9; }
 
-        /* タイトルのスタイル */
         .app-title {
             font-size: 1.2rem; font-weight: bold; letter-spacing: 1px;
             margin-bottom: 15px; opacity: 0.9; text-transform: uppercase;
@@ -29,6 +28,12 @@
         }
         .time-display { font-size: 3.8rem; font-weight: bold; font-family: monospace; }
         
+        /* 昼夜の時間説明用スタイル */
+        .time-guide {
+            font-size: 0.75rem; font-weight: bold; margin-bottom: 10px; opacity: 0.8;
+            background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 20px; display: inline-block;
+        }
+
         .next-catch-banner {
             font-size: 0.9rem; font-weight: bold; color: #fff; background: rgba(0,0,0,0.4);
             padding: 8px 15px; border-radius: 12px; margin-top: 10px;
@@ -40,9 +45,12 @@
             margin-bottom: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05);
         }
 
-        .sound-settings { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+        .sound-settings { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
         .setting-item { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: bold; }
         
+        .volume-row { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; font-weight: bold; margin-bottom: 15px; }
+        input[type="range"] { flex: 1; cursor: pointer; accent-color: var(--main-pink); }
+
         .form-row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
         input, select, button { padding: 10px; border-radius: 12px; border: none; font-size: 0.9rem; }
         input[type="text"] { flex: 1; min-width: 120px; }
@@ -61,13 +69,8 @@
         body.night .fish-name { color: #ff7675; }
         .del-btn { background: #b2bec3; color: white; margin-left: 10px; padding: 5px 8px; cursor: pointer; font-size: 0.7rem; border-radius: 8px; }
         
-        .footer {
-            margin-top: auto; padding: 30px 10px 10px; text-align: center; width: 100%;
-        }
-        .footer a {
-            color: inherit; text-decoration: none; font-weight: bold; font-size: 0.9rem; opacity: 0.8;
-        }
-        .footer a:hover { opacity: 1; text-decoration: underline; }
+        .footer { margin-top: auto; padding: 30px 10px 10px; text-align: center; width: 100%; }
+        .footer a { color: inherit; text-decoration: none; font-weight: bold; font-size: 0.9rem; opacity: 0.8; }
         
         .reset-btn {
             background: none; color: white; opacity: 0.5; font-size: 0.7rem; text-decoration: underline;
@@ -81,6 +84,7 @@
 
     <div class="clock-container">
         <div id="status-label" style="font-weight: bold; font-size: 1.1rem; margin-bottom: 5px;">---</div>
+        <div class="time-guide">☀️ 07:00~18:00 / 🌙 18:00~07:00</div>
         <div id="clock" class="time-display">00:00</div>
         <div id="next-banner" class="next-catch-banner">準備中...</div>
     </div>
@@ -90,6 +94,13 @@
             <div class="setting-item"><input type="checkbox" id="pre-sound-on" checked onchange="saveConfig()"> 🎵 事前通知音</div>
             <div class="setting-item"><input type="checkbox" id="start-sound-on" checked onchange="saveConfig()"> 🔔 開始通知音</div>
         </div>
+        
+        <div class="volume-row">
+            <span>🔈 音量</span>
+            <input type="range" id="volume-range" min="0" max="1" step="0.1" value="0.5" onchange="saveConfig(); testSound()">
+            <span id="vol-value">50%</span>
+        </div>
+
         <div style="font-size: 0.85rem;">
             通知タイミング: 
             <select id="alert-sec" onchange="saveConfig()">
@@ -135,40 +146,48 @@
             } catch (err) {}
         }
 
-        function playPreSound() {
-            if (!document.getElementById('pre-sound-on').checked || !unlocked) return;
+        function playTone(freq, duration) {
+            if (!unlocked) return;
+            var vol = parseFloat(document.getElementById('volume-range').value);
             var o = audioCtx.createOscillator();
             var g = audioCtx.createGain();
-            o.frequency.setValueAtTime(1000, audioCtx.currentTime);
-            g.gain.setValueAtTime(0.1, audioCtx.currentTime);
-            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
+            o.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            g.gain.setValueAtTime(vol * 0.2, audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
             o.connect(g); g.connect(audioCtx.destination);
-            o.start(); o.stop(audioCtx.currentTime + 0.2);
+            o.start(); o.stop(audioCtx.currentTime + duration);
+        }
+
+        function testSound() {
+            playTone(800, 0.2);
+            document.getElementById('vol-value').textContent = Math.round(document.getElementById('volume-range').value * 100) + "%";
+        }
+
+        function playPreSound() {
+            if (document.getElementById('pre-sound-on').checked) playTone(1000, 0.2);
         }
 
         function playStartSound() {
-            if (!document.getElementById('start-sound-on').checked || !unlocked) return;
-            var o = audioCtx.createOscillator();
-            var g = audioCtx.createGain();
-            o.frequency.setValueAtTime(440, audioCtx.currentTime);
-            g.gain.setValueAtTime(0.1, audioCtx.currentTime);
-            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.0);
-            o.connect(g); g.connect(audioCtx.destination);
-            o.start(); o.stop(audioCtx.currentTime + 1.0);
+            if (document.getElementById('start-sound-on').checked) playTone(440, 1.0);
         }
 
         var defaultFish = [
-            { id: 1, name: 'ミニピンクイルカ', start: 12, end: 14, place: 'モール' },
-            { id: 2, name: 'マッコウクジラ', start: 0, end: 5, place: 'ボート/ブルホ' }
+            { id: 1, name: '昼の魚', start: 7, end: 18, place: '' },
+            { id: 2, name: '夜の魚', start: 18, end: 7, place: '' },
+            { id: 3, name: 'ミニピンクイルカ', start: 12, end: 14, place: 'モール' },
+            { id: 4, name: 'マッコウクジラ', start: 0, end: 5, place: 'ボート/ブルホ' }
         ];
 
-        var fishData = JSON.parse(localStorage.getItem('fishing_fish_data')) || [...defaultFish];
+        var savedData = localStorage.getItem('fishing_fish_data');
+        var fishData = (savedData && savedData !== '[]') ? JSON.parse(savedData) : JSON.parse(JSON.stringify(defaultFish));
 
         function saveConfig() {
             localStorage.setItem('fishing_fish_data', JSON.stringify(fishData));
             localStorage.setItem('fishing_pre_on', document.getElementById('pre-sound-on').checked);
             localStorage.setItem('fishing_start_on', document.getElementById('start-sound-on').checked);
             localStorage.setItem('fishing_alert_sec', document.getElementById('alert-sec').value);
+            localStorage.setItem('fishing_volume', document.getElementById('volume-range').value);
+            document.getElementById('vol-value').textContent = Math.round(document.getElementById('volume-range').value * 100) + "%";
         }
 
         function loadConfig() {
@@ -176,6 +195,9 @@
                 document.getElementById('pre-sound-on').checked = localStorage.getItem('fishing_pre_on') === 'true';
                 document.getElementById('start-sound-on').checked = localStorage.getItem('fishing_start_on') === 'true';
                 document.getElementById('alert-sec').value = localStorage.getItem('fishing_alert_sec');
+                var vol = localStorage.getItem('fishing_volume') || 0.5;
+                document.getElementById('volume-range').value = vol;
+                document.getElementById('vol-value').textContent = Math.round(vol * 100) + "%";
             }
         }
 
@@ -205,6 +227,7 @@
 
         function renderList() {
             var list = document.getElementById('fish-list');
+            if (!list) return;
             list.innerHTML = fishData.map(function(f){
                 return '<div class="fish-item" id="row-' + f.id + '">' +
                     '<input type="checkbox" ' + (f.checked ? 'checked' : '') + ' onchange="updateCheck(' + f.id + ', this.checked)">' +
@@ -243,7 +266,7 @@
             fishData.forEach(function(f) {
                 var row = document.getElementById('row-' + f.id);
                 var stat = document.getElementById('status-' + f.id);
-                if (!row) return;
+                if (!row || !stat) return;
 
                 var isFishing = (f.start < f.end) ? (h >= f.start && h < f.end) : (h >= f.start || h < f.end);
                 var diffH = (f.start > floatH) ? (f.start - floatH) : (24 - floatH + f.start);
@@ -252,7 +275,7 @@
                 row.classList.remove('active-catch', 'pre-alert');
 
                 if (isFishing) {
-                    stat.textContent = "出現中";
+                    stat.textContent = "出現中！";
                     if (f.checked) {
                         row.classList.add('active-catch');
                         if (!f.startNotified) { playStartSound(); f.startNotified = true; }
@@ -289,5 +312,3 @@
     </script>
 </body>
 </html>
-
-
