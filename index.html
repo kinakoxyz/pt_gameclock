@@ -8,7 +8,7 @@
         :root {
             --bg-day: #87CEEB; --bg-night: #1a1a2e;
             --main-pink: #FF6B6B; --panel-white: rgba(255, 255, 255, 0.25);
-            --alert-red: #ff4757; /* 出現中の赤色 */
+            --alert-red: #ff4757;
         }
         body {
             font-family: sans-serif; display: flex; flex-direction: column; align-items: center;
@@ -20,6 +20,13 @@
         .app-title {
             font-size: 1.2rem; font-weight: bold; letter-spacing: 1px;
             margin-bottom: 15px; opacity: 0.9; text-transform: uppercase;
+        }
+
+        /* 共通パネル設定 */
+        .container-common {
+            width: 100%;
+            max-width: 480px;
+            box-sizing: border-box; /* パディングを含めて幅を計算 */
         }
 
         .clock-container {
@@ -40,7 +47,7 @@
         }
 
         .panel {
-            width: 100%; max-width: 480px; background: var(--panel-white);
+            background: var(--panel-white);
             backdrop-filter: blur(10px); border-radius: 20px; padding: 18px;
             margin-bottom: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05);
         }
@@ -52,28 +59,29 @@
         input[type="range"] { flex: 1; cursor: pointer; accent-color: var(--main-pink); }
 
         .form-row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; align-items: center; }
-        input[type="text"] { flex: 1; min-width: 140px; padding: 10px; border-radius: 12px; border: none; font-size: 0.9rem; }
+        input[type="text"] { flex: 1; min-width: 120px; padding: 10px; border-radius: 12px; border: none; font-size: 0.9rem; }
         select, button { padding: 10px; border-radius: 12px; border: none; font-size: 0.9rem; }
         .time-select-group { display: flex; align-items: center; gap: 4px; font-size: 0.85rem; font-weight: bold; }
         .add-btn { background: var(--main-pink); color: white; cursor: pointer; font-weight: bold; flex-grow: 1; margin-top: 5px; }
 
+        /* 魚リストのスタイル */
+        #fish-list { margin-bottom: 15px; }
         .fish-item {
             display: flex; align-items: center; padding: 15px; margin-bottom: 12px;
-            background: rgba(255, 255, 255, 0.3); border-radius: 18px; border: 2px solid transparent; transition: 0.3s;
+            background: rgba(255, 255, 255, 0.2); border-radius: 18px; border: 2px solid transparent; transition: 0.3s;
         }
         .fish-item.pre-alert { border-color: orange; animation: bounce 1s infinite; }
-        .fish-item.active-catch { border-color: gold; transform: scale(1.02); }
+        .fish-item.active-catch { border-color: gold; transform: scale(1.02); background: rgba(255, 255, 255, 0.35); }
         @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
 
         .fish-info { flex-grow: 1; margin-left: 12px; line-height: 1.5; font-size: 0.85rem; }
         .fish-name { font-size: 1.1rem; font-weight: bold; color: #d63031; margin-bottom: 4px; }
         body.night .fish-name { color: #ff7675; }
         
-        /* ステータス文字の色設定 */
         .fish-status { font-weight: bold; min-width: 80px; text-align: right; }
-        .status-active { color: var(--alert-red); } /* 出現中の赤色 */
+        .status-active { color: var(--alert-red); }
 
-        .del-btn { background: #b2bec3; color: white; margin-left: 10px; padding: 5px 8px; cursor: pointer; font-size: 0.7rem; border-radius: 8px; }
+        .del-btn { background: #b2bec3; color: white; margin-left: 10px; padding: 6px 10px; cursor: pointer; font-size: 0.75rem; border-radius: 8px; }
         
         .footer { margin-top: auto; padding: 30px 10px 10px; text-align: center; width: 100%; }
         .footer a { color: inherit; text-decoration: none; font-weight: bold; font-size: 0.9rem; opacity: 0.8; }
@@ -88,52 +96,56 @@
 
     <div class="app-title">Play Together Game Clocks</div>
 
-    <div class="clock-container">
-        <div id="status-label" style="font-weight: bold; font-size: 1.1rem; margin-bottom: 5px;">---</div>
-        <div class="time-guide">☀️ 07:00~18:00 / 🌙 18:00~07:00</div>
-        <div id="clock" class="time-display">00:00</div>
-        <div id="next-banner" class="next-catch-banner">準備中...</div>
-    </div>
-
-    <div class="panel">
-        <div class="sound-settings">
-            <div class="setting-item"><input type="checkbox" id="pre-sound-on" checked onchange="saveConfig()"> 🎵 事前通知音</div>
-            <div class="setting-item"><input type="checkbox" id="start-sound-on" checked onchange="saveConfig()"> 🔔 開始通知音</div>
-        </div>
-        
-        <div class="volume-row">
-            <span>🔈 音量</span>
-            <input type="range" id="volume-range" min="0" max="1" step="0.1" value="0.5" onchange="saveConfig(); testSound()">
-            <span id="vol-value">50%</span>
+    <div class="container-common">
+        <div class="clock-container">
+            <div id="status-label" style="font-weight: bold; font-size: 1.1rem; margin-bottom: 5px;">---</div>
+            <div class="time-guide">☀️ 07:00~18:00 / 🌙 18:00~07:00</div>
+            <div id="clock" class="time-display">00:00</div>
+            <div id="next-banner" class="next-catch-banner">準備中...</div>
         </div>
 
-        <div style="font-size: 0.85rem;">
-            通知タイミング: 
-            <select id="alert-sec" onchange="saveConfig()">
-                <option value="15">15秒前</option>
-                <option value="30" selected>30秒前</option>
-                <option value="60">1分前</option>
-                <option value="180">3分前</option>
-                <option value="300">5分前</option>
-            </select>
-        </div>
-    </div>
-
-    <div class="panel">
-        <div style="font-weight: bold; font-size: 0.9rem; margin-bottom: 8px;">🐟 魚を新しく追加</div>
-        <div class="form-row">
-            <input type="text" id="new-name" placeholder="魚の名前">
-            <div class="time-select-group">
-                開始:<select id="new-start"></select>
-                終了:<select id="new-end"></select>
+        <div class="panel">
+            <div class="sound-settings">
+                <div class="setting-item"><input type="checkbox" id="pre-sound-on" checked onchange="saveConfig()"> 🎵 事前通知音</div>
+                <div class="setting-item"><input type="checkbox" id="start-sound-on" checked onchange="saveConfig()"> 🔔 開始通知音</div>
             </div>
-            <button class="add-btn" onclick="addFish()">リストに追加</button>
+            
+            <div class="volume-row">
+                <span>🔈 音量</span>
+                <input type="range" id="volume-range" min="0" max="1" step="0.1" value="0.5" onchange="saveConfig(); testSound()">
+                <span id="vol-value">50%</span>
+            </div>
+
+            <div style="font-size: 0.85rem;">
+                通知タイミング: 
+                <select id="alert-sec" onchange="saveConfig()">
+                    <option value="15">15秒前</option>
+                    <option value="30" selected>30秒前</option>
+                    <option value="60">1分前</option>
+                    <option value="180">3分前</option>
+                    <option value="300">5分前</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div style="font-weight: bold; font-size: 0.9rem; margin-bottom: 8px;">🐟 魚を新しく追加</div>
+            <div class="form-row">
+                <input type="text" id="new-name" placeholder="魚の名前">
+                <div class="time-select-group">
+                    開始:<select id="new-start"></select>
+                    終了:<select id="new-end"></select>
+                </div>
+                <button class="add-btn" onclick="addFish()">リストに追加</button>
+            </div>
+        </div>
+
+        <div id="fish-list"></div>
+        
+        <div style="text-align: center;">
+            <button class="reset-btn" onclick="resetToDefault()">魚のリストを初期化する</button>
         </div>
     </div>
-
-    <div id="fish-list" style="width:100%; max-width:480px;"></div>
-
-    <button class="reset-btn" onclick="resetToDefault()">魚のリストを初期化する</button>
 
     <div class="footer">
         <a href="https://x.com/satochintama" target="_blank">Created by @satochintama</a>
@@ -176,38 +188,32 @@
             } catch (err) {}
         }
 
-        // 強力な音を出すための関数
         function playTone(freq, duration, type = 'sine') {
             if (!unlocked) return;
             var vol = parseFloat(document.getElementById('volume-range').value);
             var o = audioCtx.createOscillator();
             var g = audioCtx.createGain();
-            
-            o.type = type; // square(四角波)にするともっとうるさくなりますが、ここではsine/triangleで調整
+            o.type = type;
             o.frequency.setValueAtTime(freq, audioCtx.currentTime);
-            
-            g.gain.setValueAtTime(vol * 0.4, audioCtx.currentTime); // ゲインを少し底上げ
+            g.gain.setValueAtTime(vol * 0.4, audioCtx.currentTime);
             g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
-            
             o.connect(g); g.connect(audioCtx.destination);
             o.start(); o.stop(audioCtx.currentTime + duration);
         }
 
         function testSound() {
-            playTone(880, 0.2, 'triangle'); // テスト音を少し明快に
+            playTone(880, 0.2, 'triangle');
             document.getElementById('vol-value').textContent = Math.round(document.getElementById('volume-range').value * 100) + "%";
         }
 
         function playPreSound() {
             if (!document.getElementById('pre-sound-on').checked) return;
-            // 2回鳴らして気づきやすく
             playTone(1200, 0.1, 'sine');
             setTimeout(() => playTone(1200, 0.1, 'sine'), 150);
         }
 
         function playStartSound() {
             if (!document.getElementById('start-sound-on').checked) return;
-            // 厚みのある音（和音に近い構成）
             playTone(440, 0.8, 'triangle');
             playTone(880, 0.5, 'sine');
         }
